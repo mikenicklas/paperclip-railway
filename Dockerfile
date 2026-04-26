@@ -1,4 +1,4 @@
-# Paperclip on Railway — one-click deployment
+# Paperclip on Railway — one-click deployment (v2)
 # Clones and builds the latest Paperclip from GitHub.
 
 # syntax=docker/dockerfile:1.20
