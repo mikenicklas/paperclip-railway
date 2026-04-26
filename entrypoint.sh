@@ -22,6 +22,15 @@ if [ -z "$PAPERCLIP_PUBLIC_URL" ] && [ -n "$RAILWAY_PUBLIC_DOMAIN" ]; then
   echo "Auto-detected PAPERCLIP_PUBLIC_URL=$PAPERCLIP_PUBLIC_URL"
 fi
 
+# Fall back to private exposure when no public URL is configured.
+# Public exposure requires an explicit base URL (auth.baseUrlMode=explicit),
+# which crashes on first deploy before a domain is assigned.
+# Private exposure uses auto mode (infers URL from request) and works immediately.
+if [ -z "$PAPERCLIP_PUBLIC_URL" ]; then
+  export PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+  echo "No PAPERCLIP_PUBLIC_URL set — falling back to private exposure (auto base URL mode)"
+fi
+
 # Ensure data directory exists and is owned by node
 mkdir -p /paperclip
 chown -R node:node /paperclip 2>/dev/null || true
