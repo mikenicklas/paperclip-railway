@@ -19,11 +19,10 @@ RUN pnpm --filter @paperclipai/ui build \
 
 FROM node:lts-trixie-slim AS production
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates gosu openssh-client jq git \
+  && apt-get install -y --no-install-recommends ca-certificates openssh-client jq git \
   && rm -rf /var/lib/apt/lists/* \
   && corepack enable \
-  && mkdir -p /paperclip \
-  && chown node:node /paperclip
+  && mkdir -p /paperclip
 
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
