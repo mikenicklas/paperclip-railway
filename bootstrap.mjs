@@ -1,7 +1,11 @@
 // Auto-bootstrap the first Paperclip admin invite.
-// Uses the 'postgres' package (postgres.js) which is what Paperclip uses.
+// Uses createRequire to resolve 'postgres' from @paperclipai/db's scope
+// (pnpm strict mode won't resolve it from /app/ directly).
 import { createHash, randomBytes } from "node:crypto";
-import postgres from "postgres";
+import { createRequire } from "node:module";
+
+const require = createRequire("/app/packages/db/");
+const postgres = require("postgres");
 
 const DB_URL = process.env.BOOTSTRAP_DB_URL || "postgres://paperclip:paperclip@127.0.0.1:54329/paperclip";
 const BASE_URL = process.env.PAPERCLIP_PUBLIC_URL || `http://localhost:${process.env.PORT || 3100}`;
