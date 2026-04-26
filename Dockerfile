@@ -8,7 +8,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && corepack enable
 
-ARG PAPERCLIP_VERSION=main
+ARG PAPERCLIP_VERSION=master
 WORKDIR /app
 RUN git clone --depth 1 --branch ${PAPERCLIP_VERSION} https://github.com/paperclipai/paperclip.git .
 RUN pnpm install --frozen-lockfile
