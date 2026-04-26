@@ -40,4 +40,4 @@ fi
 
 echo "Starting Paperclip (mode=$PAPERCLIP_DEPLOYMENT_MODE, exposure=$PAPERCLIP_DEPLOYMENT_EXPOSURE, port=$PORT)"
 
-exec node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js
+exec gosu node node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js
