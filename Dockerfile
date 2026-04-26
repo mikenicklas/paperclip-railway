@@ -28,7 +28,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
 COPY entrypoint.sh /usr/local/bin/railway-entrypoint.sh
-COPY bootstrap.mjs /usr/local/bin/bootstrap.mjs
+COPY bootstrap.mjs /app/bootstrap.mjs
 RUN chmod +x /usr/local/bin/railway-entrypoint.sh
 
 ENV NODE_ENV=production \

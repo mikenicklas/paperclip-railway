@@ -56,7 +56,7 @@ if [ ! -f "$BOOTSTRAP_MARKER" ]; then
 
   # Bootstrap using our script (pg module is already installed in the monorepo)
   echo "Running admin bootstrap..."
-  gosu node node /usr/local/bin/bootstrap.mjs 2>&1 || echo "Bootstrap script finished with errors (non-fatal)"
+  gosu node node /app/bootstrap.mjs 2>&1 || echo "Bootstrap script finished with errors (non-fatal)"
 
   touch "$BOOTSTRAP_MARKER"
   chown node:node "$BOOTSTRAP_MARKER" 2>/dev/null || true
