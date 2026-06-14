@@ -1,57 +1,67 @@
-# Paperclip on Railway — with Codex CLI installed at build time
+#!/bin/sh
+set -e
 
-# syntax=docker/dockerfile:1.20
-FROM node:lts-trixie-slim AS build
+echo "=== Paperclip Railway Entrypoint ==="
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git python3 \
-  && rm -rf /var/lib/apt/lists/* \
-  && corepack enable
+# Auto-generate BETTER_AUTH_SECRET if not set
+if [ -z "$BETTER_AUTH_SECRET" ]; then
+  if [ -f /paperclip/.auth_secret ]; then
+    export BETTER_AUTH_SECRET=$(cat /paperclip/.auth_secret)
+  else
+    export BETTER_AUTH_SECRET=$(head -c 32 /dev/urandom | base64)
+    mkdir -p /paperclip
+    echo "$BETTER_AUTH_SECRET" > /paperclip/.auth_secret
+    chmod 600 /paperclip/.auth_secret
+    echo "Generated BETTER_AUTH_SECRET"
+  fi
+fi
 
-ARG PAPERCLIP_VERSION=master
+export PORT=${PORT:-3100}
 
-WORKDIR /app
+# Auto-detect public URL
+if [ -z "$PAPERCLIP_PUBLIC_URL" ] && [ -n "$RAILWAY_PUBLIC_DOMAIN" ]; then
+  export PAPERCLIP_PUBLIC_URL="https://$RAILWAY_PUBLIC_DOMAIN"
+fi
 
-RUN git clone --depth 1 --branch ${PAPERCLIP_VERSION} https://github.com/paperclipai/paperclip.git .
+# Exposure mode
+if [ -n "$PAPERCLIP_PUBLIC_URL" ]; then
+  export PAPERCLIP_DEPLOYMENT_EXPOSURE=public
+  export PAPERCLIP_AUTH_BASE_URL_MODE=explicit
+else
+  export PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+fi
 
-RUN pnpm install --frozen-lockfile
+mkdir -p /paperclip
+chown -R node:node /paperclip 2>/dev/null || true
 
-RUN pnpm --filter @paperclipai/ui build \
-  && pnpm --filter @paperclipai/plugin-sdk build \
-  && pnpm --filter @paperclipai/server build \
-  && test -f server/dist/index.js
+BOOTSTRAP_MARKER="/paperclip/.bootstrapped"
 
+echo "Starting Paperclip (mode=$PAPERCLIP_DEPLOYMENT_MODE, exposure=$PAPERCLIP_DEPLOYMENT_EXPOSURE, port=$PORT)"
 
-FROM node:lts-trixie-slim AS production
+if [ ! -f "$BOOTSTRAP_MARKER" ]; then
+  # First run: start server, wait for DB, bootstrap admin
+  gosu node node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js &
+  SERVER_PID=$!
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl gosu openssh-client jq git \
-  && rm -rf /var/lib/apt/lists/* \
-  && corepack enable \
-  && npm install -g @openai/codex \
-  && mkdir -p /paperclip /data/.codex \
-  && chown -R node:node /paperclip /data \
-  && codex --version
+  echo "Waiting for database..."
+  for i in $(seq 1 60); do
+    if gosu node node -e "require('net').connect(54329,'127.0.0.1',()=>process.exit(0)).on('error',()=>process.exit(1))" 2>/dev/null; then
+      echo "Database ready after ${i}s"
+      break
+    fi
+    sleep 1
+  done
 
-WORKDIR /app
+  sleep 5
 
-COPY --chown=node:node --from=build /app /app
-COPY entrypoint.sh /usr/local/bin/railway-entrypoint.sh
-COPY bootstrap.mjs /app/bootstrap.mjs
+  # Bootstrap using our script (pg module is already installed in the monorepo)
+  echo "Running admin bootstrap..."
+  gosu node node /app/bootstrap.mjs 2>&1 || echo "Bootstrap script finished with errors (non-fatal)"
 
-RUN chmod +x /usr/local/bin/railway-entrypoint.sh
+  touch "$BOOTSTRAP_MARKER"
+  chown node:node "$BOOTSTRAP_MARKER" 2>/dev/null || true
 
-ENV NODE_ENV=production \
-  HOME=/paperclip \
-  CODEX_HOME=/data/.codex \
-  HOST=0.0.0.0 \
-  PORT=3100 \
-  SERVE_UI=true \
-  PAPERCLIP_HOME=/paperclip \
-  PAPERCLIP_INSTANCE_ID=default \
-  PAPERCLIP_DEPLOYMENT_MODE=authenticated \
-  PAPERCLIP_DEPLOYMENT_EXPOSURE=private
-
-EXPOSE 3100
-
-CMD ["/usr/local/bin/railway-entrypoint.sh"]
+  wait $SERVER_PID
+else
+  exec gosu node node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js
+fi
