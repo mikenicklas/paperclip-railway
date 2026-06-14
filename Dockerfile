@@ -28,9 +28,10 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl gosu openssh-client jq git \
   && rm -rf /var/lib/apt/lists/* \
   && corepack enable \
-  && curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh \
+  && npm install -g @openai/codex \
   && mkdir -p /paperclip /data/.codex \
-  && chown -R node:node /paperclip /data
+  && chown -R node:node /paperclip /data \
+  && codex --version
 
 WORKDIR /app
 
